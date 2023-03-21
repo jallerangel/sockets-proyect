@@ -1,5 +1,4 @@
 const { Server } = require("net");
-const { argv } = require("process");
 
 const END = "END";
 const host = "0.0.0.0";
@@ -8,12 +7,13 @@ const host = "0.0.0.0";
 //127.0.0.1 -> 'Karola'
 const connections = new Map();
 
-const error = (message) => {
-  console.error(message);
-  process.exit(1);
-};
+const error = require("./error");
+
 const sendMessage = (message, origin) => {
   //Mandar a todos, menos a origin el message.
+  for (const socket of connections.keys()) {
+    if (socket !== origin) socket.write(`${message}`);
+  }
 };
 const listen = (port) => {
   const server = new Server();
@@ -28,10 +28,16 @@ const listen = (port) => {
         console.log(`Username ${message} set for connetions ${remoteSocket}`);
         connections.set(socket, message);
       } else if (message === END) {
+        connections.delete(socket);
         socket.end();
       } else {
+        for (const username of connections.values()) {
+          console.log(username);
+        }
         //Enviar mensajes al resto de clientes
-        console.log(`${remoteSocket} -> ${message} `);
+        const fullMessage = `[${connections.get(socket)}]: ${message} `;
+        console.log(`${remoteSocket} -> ${fullMessage}`);
+        sendMessage(fullMessage, socket);
       }
     });
     socket.on("close", () => {
@@ -46,7 +52,7 @@ const listen = (port) => {
     console.log(`Listening on ${port}`);
   });
 
-  server.on("error", (err) => error(err.message));
+  server.on("error", (err) => error(err));
 };
 
 const main = () => {
@@ -62,5 +68,3 @@ const main = () => {
   listen(port);
 };
 if (require.main === module) return main();
-
-module.exports = error;
